@@ -94,11 +94,6 @@ pipeline:
                       when:
                         stageStatus: Success
                         condition: <+pipeline.variables.terraforminput> == "destroy"
-              - step:
-                  type: Run
-                  name: Run_1
-                  identifier: Run_1
-                  spec: {}
         tags: {}
         when:
           pipelineStatus: Success
