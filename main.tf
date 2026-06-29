@@ -1,11 +1,32 @@
 provider "aws" {
   region = "us-east-1"
 }
+# 1. Define the Security Group
+resource "aws_security_group" "allow_ssh_and_k8s" {
+  name        = "minikube-ec2-security-group"
+  description = "Allow SSH and application traffic"
 
+  # Inbound Rule: Allow Port 22 for EC2 Instance Connect or your IP
+  ingress {
+    description = "SSH from everywhere (or restrict to your IP)"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # For production, restrict to your IP or specific AWS region prefixes
+  }
+
+  # Outbound Rule: Essential for User Data to download Minikube/Docker packages
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
 resource "aws_instance" "kubernetes_node" {
   ami           = "ami-08f44e8eca9095668" # Ubuntu 22.04 LTS or 24.04 LTS in us-east-1
   instance_type = "c7i-flex.large"
-
+  vpc_security_group_ids = [aws_security_group.allow_ssh_and_k8s.id]
   # User Data script executed automatically at system startup
   user_data = <<-EOF
               #!/bin/bash
