@@ -34,13 +34,6 @@ pipeline:
                   timeout: 10m
                   spec:
                     command: plan
-              - step:
-                  type: IACMTerraformPlugin
-                  name: apply
-                  identifier: apply
-                  timeout: 10m
-                  spec:
-                    command: apply
               - parallel:
                   - stepGroup:
                       name: apply
