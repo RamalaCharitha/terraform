@@ -38,14 +38,50 @@ pipeline:
                   - stepGroup:
                       name: apply
                       identifier: apply
-                      steps: []
+                      steps:
+                        - step:
+                            type: IACMApproval
+                            name: IACMApproval_1
+                            identifier: IACMApproval_1
+                            spec:
+                              autoApprove: false
+                            timeout: 1h
+                            when:
+                              stageStatus: Success
+                              condition: |
+                                <+pipeline.variables.terraforminput> == "apply"
+                        - step:
+                            type: IACMTerraformPlugin
+                            name: IACMTerraformPlugin_3
+                            identifier: IACMTerraformPlugin_3
+                            spec:
+                              command: apply
+                            timeout: 1h
                       when:
                         stageStatus: Success
                         condition: <+pipeline.pipeline.variables.terraforminput> == "apply"
                   - stepGroup:
                       name: destroy
                       identifier: destroy
-                      steps: []
+                      steps:
+                        - step:
+                            type: IACMApproval
+                            name: IACMApproval_2
+                            identifier: IACMApproval_2
+                            spec:
+                              autoApprove: false
+                            timeout: 1h
+                            when:
+                              stageStatus: Success
+                              condition: |
+                                <+pipeline.variables.terraforminput> == "destroy"
+                        - step:
+                            type: IACMTerraformPlugin
+                            name: IACMTerraformPlugin_4
+                            identifier: IACMTerraformPlugin_4
+                            spec:
+                              command: destroy
+                            timeout: 1h
                       when:
                         stageStatus: Success
                         condition: <+pipeline.pipeline.variables.terraforminput> == "destroy"
@@ -55,6 +91,6 @@ pipeline:
   variables:
     - name: terraforminput
       type: String
-      description: ""
+      description: apply
       required: true
       value: <+input>
