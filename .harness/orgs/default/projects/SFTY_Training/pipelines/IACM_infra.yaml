@@ -59,7 +59,7 @@ pipeline:
                             timeout: 1h
                       when:
                         stageStatus: Success
-                        condition: <+pipeline.pipeline.variables.terraforminput> == "apply"
+                        condition: <+pipeline.variables.terraforminput> == "apply"
                   - stepGroup:
                       name: destroy
                       identifier: destroy
@@ -84,7 +84,7 @@ pipeline:
                             timeout: 1h
                       when:
                         stageStatus: Success
-                        condition: <+pipeline.pipeline.variables.terraforminput> == "destroy"
+                        condition: <+pipeline.variables.terraforminput> == "destroy"
         tags: {}
         when:
           pipelineStatus: Success
