@@ -41,6 +41,27 @@ pipeline:
                   timeout: 10m
                   spec:
                     command: apply
+              - parallel:
+                  - stepGroup:
+                      name: apply
+                      identifier: apply
+                      steps: []
+                      when:
+                        stageStatus: Success
+                        condition: <+pipeline.pipeline.variables.terraforminput> == "apply"
+                  - stepGroup:
+                      name: destroy
+                      identifier: destroy
+                      steps: []
+                      when:
+                        stageStatus: Success
+                        condition: <+pipeline.pipeline.variables.terraforminput> == "destroy"
         tags: {}
         when:
           pipelineStatus: Success
+  variables:
+    - name: terraforminput
+      type: String
+      description: ""
+      required: true
+      value: <+input>
