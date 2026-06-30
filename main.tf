@@ -7,7 +7,6 @@ resource "aws_security_group" "allow_ssh_and_k8s" {
   name        = "minikube-ec2-security-group"
   description = "Allow SSH and application traffic"
 
-  # Inbound Rule: Allow Port 22 for EC2 Instance Connect or your IP
   ingress {
     description = "SSH from everywhere"
     from_port   = 22
@@ -16,7 +15,6 @@ resource "aws_security_group" "allow_ssh_and_k8s" {
     cidr_blocks = ["0.0.0.0/0"] 
   }
 
-  # Outbound Rule: Essential for User Data to download Minikube/Docker packages
   egress {
     from_port   = 0
     to_port     = 0
@@ -37,7 +35,7 @@ resource "aws_instance" "kubernetes_node" {
               #!/bin/bash
               set -e
 
-              # 1. Update system and install Docker (Amazon Linux 2023 native package manager)
+              # 1. Update system and install Docker
               dnf update -y
               dnf install -y docker
               systemctl start docker
@@ -46,15 +44,15 @@ resource "aws_instance" "kubernetes_node" {
               # 2. Add ec2-user to the docker group
               usermod -aG docker ec2-user
 
-              # 3. Install Kubectl with the correct stable URL
+              # 3. Install Kubectl (FIXED URL)
               curl -LO "https://k8s.io(curl -L -s https://k8s.io)/bin/linux/amd64/kubectl"
               install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
-              # 4. Install Minikube with the correct download binary URL
-              curl -LO https://googleapis.com
+              # 4. Install Minikube (FIXED URL)
+              curl -LO "https://googleapis.com"
               install minikube-linux-amd64 /usr/local/bin/minikube
 
-              # 5. Switch to ec2-user to start Minikube (cannot be run as root)
+              # 5. Switch to ec2-user to start Minikube
               sudo -i -u ec2-user minikube start --driver=docker
               EOF
 
