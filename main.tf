@@ -44,11 +44,11 @@ resource "aws_instance" "kubernetes_node" {
               # 2. Add ec2-user to the docker group
               usermod -aG docker ec2-user
 
-              # 3. Install Kubectl (FIXED URL)
-              curl -LO "https://k8s.io(curl -L -s https://k8s.io)/bin/linux/amd64/kubectl"
+              # 3. Install Kubectl (Cleaned URL without nested commands)
+              curl -LO "https://k8s.io"
               install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
-              # 4. Install Minikube (FIXED URL)
+              # 4. Install Minikube (Cleaned flat URL configuration)
               curl -LO "https://googleapis.com"
               install minikube-linux-amd64 /usr/local/bin/minikube
 
