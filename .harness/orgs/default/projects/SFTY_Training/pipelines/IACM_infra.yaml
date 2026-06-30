@@ -57,15 +57,6 @@ pipeline:
                             spec:
                               command: apply
                             timeout: 1h
-                        - step:
-                            type: Run
-                            name: Run_2
-                            identifier: Run_2
-                            spec:
-                              shell: Sh
-                              command: |-
-                                echo "Waiting for EC2 boot and Minikube initialisation to complete..."
-                                sleep 150 # Wait 2.5 minutes before moving to subsequent pipeline jobs
                       when:
                         stageStatus: Success
                         condition: <+pipeline.variables.terraforminput> == "apply"
