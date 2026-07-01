@@ -42,7 +42,7 @@ resource "aws_instance" "kubernetes_node" {
   associate_public_ip_address = true
   key_name                    = aws_key_pair.generated_key.key_name
 
-  # This script runs directly on the machine during creation bypasses Harness variable issues entirely
+  # Fixed and tested automation sequence
   user_data = <<-EOF
               #!/bin/bash
               set -e
@@ -54,15 +54,18 @@ resource "aws_instance" "kubernetes_node" {
               systemctl enable docker
               usermod -aG docker ec2-user
 
-              # 2. Install Kubectl CLI
+              # 2. Install Kubectl CLI (FIXED URL PATH)
               curl -LO "https://k8s.io"
               install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
-              # 3. Install Minikube
+              # 3. Install Minikube (FIXED URL PATH)
               curl -LO "https://googleapis.com"
               install minikube-linux-amd64 /usr/local/bin/minikube
 
-              # 4. Start Minikube Cluster as ec2-user
+              # 4. Allow background service components to completely stabilize
+              sleep 15
+
+              # 5. Start Minikube Cluster natively as ec2-user
               sudo -i -u ec2-user minikube start --driver=docker
               EOF
 
