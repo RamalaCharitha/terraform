@@ -67,21 +67,21 @@ pipeline:
                                 #!/bin/bash
                                 set -e
 
-                                # 1. Fetch your EC2 Public IP and Private Key from Harness IaCM Output Variables
-                                TARGET_IP="<+execution.steps.IACMTerraformPlugin_3.output.outputVariables.instance_public_ip>"
-                                PRIVATE_KEY_CONTENT="<+execution.steps.IACMTerraformPlugin_3.output.outputVariables.generated_private_key>"
+                                # 1. Fetch values directly from the IaCM step execution context
+                                TARGET_IP="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.output.outputVariables.instance_public_ip>"
+                                PRIVATE_KEY_CONTENT="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.output.outputVariables.generated_private_key>"
 
-                                # Fallback block: If the direct step expression resolves to null, look up using the explicit iacm context mapping
+                                # Fallback: Absolute path variant if stage spec is nested
                                 if [ -z "$TARGET_IP" ] || [ "$TARGET_IP" = "null" ]; then
-                                    TARGET_IP="<+execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.instance_public_ip>"
-                                    PRIVATE_KEY_CONTENT="<+execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.generated_private_key>"
+                                    TARGET_IP="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.instance_public_ip>"
+                                    PRIVATE_KEY_CONTENT="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.generated_private_key>"
                                 fi
 
                                 # Safety Check: Stop early if Harness expressions still evaluate to null
                                 if [ -z "$TARGET_IP" ] || [ "$TARGET_IP" = "null" ]; then
                                     echo "=========================================================================="
                                     echo "ERROR: TARGET_IP is still null."
-                                    echo "Harness is not publishing the variables from the AWSInfra workspace."
+                                    echo "Please ensure your main.tf contains the output blocks on GitHub."
                                     echo "=========================================================================="
                                     exit 1
                                 fi
