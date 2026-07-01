@@ -1,0 +1,157 @@
+pipeline:
+  name: IACM_infra
+  identifier: IACM_infra
+  projectIdentifier: SFTY_Training
+  orgIdentifier: default
+  tags: {}
+  stages:
+    - stage:
+        name: Provision
+        identifier: Provision
+        description: ""
+        type: IACM
+        spec:
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          workspace: AWSInfra
+          execution:
+            steps:
+              - step:
+                  type: IACMTerraformPlugin
+                  name: init
+                  identifier: init
+                  timeout: 10m
+                  spec:
+                    command: init
+              - step:
+                  type: IACMTerraformPlugin
+                  name: plan
+                  identifier: plan
+                  timeout: 10m
+                  spec:
+                    command: plan
+              - parallel:
+                  - stepGroup:
+                      name: apply
+                      identifier: apply
+                      steps:
+                        - step:
+                            type: IACMApproval
+                            name: IACMApproval_1
+                            identifier: IACMApproval_1
+                            spec:
+                              autoApprove: false
+                            timeout: 1h
+                            when:
+                              stageStatus: Success
+                              condition: |
+                                <+pipeline.variables.terraforminput> == "apply"
+                        - step:
+                            type: IACMTerraformPlugin
+                            name: IACMTerraformPlugin_3
+                            identifier: IACMTerraformPlugin_3
+                            spec:
+                              command: apply
+                            timeout: 1h
+                        - step:
+                            type: Run
+                            name: minikube install
+                            identifier: minikube_install
+                            spec:
+                              shell: Sh
+                              command: |-
+                                #!/bin/bash
+                                set -e
+
+                                # 1. Fetch variables from Global IaCM Workspace Tree
+                                TARGET_IP="<+workspace.outputVariables.instance_public_ip>"
+                                PRIVATE_KEY_CONTENT="<+workspace.outputVariables.generated_private_key>"
+
+                                # Safety Check: Stop early if Harness expressions still evaluate to null
+                                if [ -z "$TARGET_IP" ] || [ "$TARGET_IP" = "null" ]; then
+                                    echo "=========================================================================="
+                                    echo "ERROR: TARGET_IP is still null."
+                                    echo "=========================================================================="
+                                    exit 1
+                                fi
+
+                                echo "=================================================="
+                                echo "Targeting Instance Public IP: $TARGET_IP"
+                                echo "=================================================="
+
+                                # 2. Write the dynamic private key to a temporary file on the runner container
+                                echo "$PRIVATE_KEY_CONTENT" > dynamic_ec2_key.pem
+                                chmod 400 dynamic_ec2_key.pem
+
+                                # 3. Wait for SSH port 22 to become fully active on the AWS instance
+                                echo "Waiting for SSH connection to stabilize..."
+                                until nc -z -w 5 "$TARGET_IP" 22; do
+                                    echo "SSH is still warming up... retrying in 5 seconds"
+                                    sleep 5
+                                done
+
+                                # 4. Define the complete Minikube installation block (FIXED STABLE URLS)
+                                INSTALL_COMMANDS="sudo dnf update -y && \
+                                sudo dnf install -y docker && \
+                                sudo systemctl start docker && \
+                                sudo systemctl enable docker && \
+                                sudo usermod -aG docker ec2-user && \
+                                curl -LO 'https://k8s.io' && \
+                                sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+                                curl -LO 'https://googleapis.com' && \
+                                sudo install minikube-linux-amd64 /usr/local/bin/minikube && \
+                                sudo -i -u ec2-user minikube start --driver=docker && \
+                                sudo -i -u ec2-user minikube status"
+
+                                echo "Connecting to instance via SSH and executing setup..."
+
+                                # 5. Connect and execute the commands remotely over standard SSH
+                                ssh -i dynamic_ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$TARGET_IP "$INSTALL_COMMANDS"
+
+                                echo "=================================================="
+                                echo "SUCCESS: Minikube cluster is up and running!"
+                                echo "=================================================="
+
+                                # Clean up the temporary key file from the container environment
+                                rm -f dynamic_ec2_key.pem
+                      when:
+                        stageStatus: Success
+                        condition: <+pipeline.variables.terraforminput> == "apply"
+                  - stepGroup:
+                      name: destroy
+                      identifier: destroy
+                      steps:
+                        - step:
+                            type: IACMApproval
+                            name: IACMApproval_2
+                            identifier: IACMApproval_2
+                            spec:
+                              autoApprove: false
+                            timeout: 1h
+                            when:
+                              stageStatus: Success
+                              condition: |
+                                <+pipeline.variables.terraforminput> == "destroy"
+                        - step:
+                            type: IACMTerraformPlugin
+                            name: IACMTerraformPlugin_4
+                            identifier: IACMTerraformPlugin_4
+                            spec:
+                              command: destroy
+                            timeout: 1h
+                      when:
+                        stageStatus: Success
+                        condition: <+pipeline.variables.terraforminput> == "destroy"
+        tags: {}
+        when:
+          pipelineStatus: Success
+  variables:
+    - name: terraforminput
+      type: String
+      description: apply
+      required: true
+      value: <+input>
