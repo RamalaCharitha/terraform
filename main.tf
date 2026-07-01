@@ -10,20 +10,29 @@ resource "tls_private_key" "dynamic_key" {
 
 # 2. Register the public key with AWS
 resource "aws_key_pair" "generated_key" {
-  key_name   = "harness-minikube-key"
+  key_name   = "harness-tomcat-key"
   public_key = tls_private_key.dynamic_key.public_key_openssh
 }
 
-# 3. Define the Security Group
-resource "aws_security_group" "allow_ssh_and_k8s" {
-  name        = "minikube-ec2-security-group"
-  description = "Allow SSH and traffic"
+# 3. Define the Security Group (Exposing Web Port 8080)
+resource "aws_security_group" "allow_ssh_and_tomcat" {
+  name        = "tomcat-ec2-security-group"
+  description = "Allow SSH and Tomcat web traffic"
 
   ingress {
+    description = "SSH Access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"] 
+  }
+
+  ingress {
+    description = "Tomcat Web Server Port"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Anyone can view your app via the public IP
   }
 
   egress {
@@ -34,48 +43,45 @@ resource "aws_security_group" "allow_ssh_and_k8s" {
   }
 }
 
-# 4. Define the EC2 Instance (With Automatic User Data Installation)
-resource "aws_instance" "kubernetes_node" {
+# 4. Define the EC2 Instance (With Automatic Tomcat Installation)
+resource "aws_instance" "tomcat_node" {
   ami                         = "ami-08f44e8eca9095668" # Amazon Linux 2023
   instance_type               = "c7i-flex.large"
-  vpc_security_group_ids      = [aws_security_group.allow_ssh_and_k8s.id]
+  vpc_security_group_ids      = [aws_security_group.allow_ssh_and_tomcat.id]
   associate_public_ip_address = true
   key_name                    = aws_key_pair.generated_key.key_name
 
-  # Fixed and tested automation sequence
+  # Automation sequence to install Java and Tomcat
   user_data = <<-EOF
               #!/bin/bash
               set -e
 
-              # 1. Install Docker Engine
+              # 1. Update system libraries and install Java 17 (Required for Tomcat 10)
               dnf update -y
-              dnf install -y docker
-              systemctl start docker
-              systemctl enable docker
-              usermod -aG docker ec2-user
+              dnf install -y java-17-amazon-corretto-headless
 
-              # 2. Install Kubectl CLI (FIXED URL PATH)
-              curl -LO "https://k8s.io"
-              install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+              # 2. Download and unpack Apache Tomcat 10
+              cd /opt
+              curl -LO "https://apache.org"
+              tar -xf apache-tomcat-10.1.25.tar.gz
+              mv apache-tomcat-10.1.25 tomcat
+              rm -f apache-tomcat-10.1.25.tar.gz
 
-              # 3. Install Minikube (FIXED URL PATH)
-              curl -LO "https://googleapis.com"
-              install minikube-linux-amd64 /usr/local/bin/minikube
+              # 3. Secure folder permissions for ec2-user ownership
+              chown -R ec2-user:ec2-user /opt/tomcat
+              chmod +x /opt/tomcat/bin/*.sh
 
-              # 4. Allow background service components to completely stabilize
-              sleep 15
-
-              # 5. Start Minikube Cluster natively as ec2-user
-              sudo -i -u ec2-user minikube start --driver=docker
+              # 4. Run Tomcat directly under the ec2-user profile context
+              sudo -i -u ec2-user /opt/tomcat/bin/startup.sh
               EOF
 
   tags = {
-    Name = "Harness-Minikube-Node"
+    Name = "Harness-Tomcat-Node"
   }
 }
 
-# 5. Output the Public IP
+# 5. Output the Public IP to check the web browser dashboard
 output "instance_public_ip" {
-  value       = aws_instance.kubernetes_node.public_ip
-  description = "The public IP of the instance"
+  value       = aws_instance.tomcat_node.public_ip
+  description = "The public IP of the Tomcat server"
 }
