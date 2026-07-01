@@ -86,7 +86,56 @@ pipeline:
                             type: Run
                             name: Run_1
                             identifier: Run_1
-                            spec: {}
+                            spec:
+                              shell: Sh
+                              command: |-
+                                #!/bin/bash
+                                set -e
+
+                                # 1. Fetch your EC2 Public IP and Private Key directly from Terraform outputs
+                                # IMPORTANT: Replace 'STAGE_ID' and 'TERRAFORM_STEP_ID' with your exact Harness identifiers
+                                TARGET_IP="<+pipeline.stages.STAGE_ID.spec.execution.steps.TERRAFORM_STEP_ID.output.terraformOutputs.instance_public_ip>"
+                                PRIVATE_KEY_CONTENT="<+pipeline.stages.STAGE_ID.spec.execution.steps.TERRAFORM_STEP_ID.output.terraformOutputs.generated_private_key>"
+
+                                echo "=================================================="
+                                echo "Targeting Instance Public IP: $TARGET_IP"
+                                echo "=================================================="
+
+                                # 2. Write the dynamic private key to a temporary file on the runner container
+                                echo "$PRIVATE_KEY_CONTENT" > dynamic_ec2_key.pem
+                                chmod 400 dynamic_ec2_key.pem
+
+                                # 3. Wait for SSH port 22 to become fully active on the AWS instance
+                                echo "Waiting for SSH connection to stabilize..."
+                                until nc -z -w 5 "$TARGET_IP" 22; do
+                                    echo "SSH is still warming up... retrying in 5 seconds"
+                                    sleep 5
+                                done
+
+                                # 4. Define the complete Minikube installation block
+                                INSTALL_COMMANDS="sudo dnf update -y && \
+                                sudo dnf install -y docker && \
+                                sudo systemctl start docker && \
+                                sudo systemctl enable docker && \
+                                sudo usermod -aG docker ec2-user && \
+                                curl -LO 'https://k8s.io' && \
+                                sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+                                curl -LO 'https://googleapis.com' && \
+                                sudo install minikube-linux-amd64 /usr/local/bin/minikube && \
+                                sudo -i -u ec2-user minikube start --driver=docker && \
+                                sudo -i -u ec2-user minikube status"
+
+                                echo "Connecting to instance via SSH and executing setup..."
+
+                                # 5. Connect and execute the commands remotely over standard SSH
+                                ssh -i dynamic_ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$TARGET_IP "$INSTALL_COMMANDS"
+
+                                echo "=================================================="
+                                echo "SUCCESS: Minikube cluster is up and running!"
+                                echo "=================================================="
+
+                                # Clean up the temporary key file from the container environment
+                                rm -f dynamic_ec2_key.pem
                       when:
                         stageStatus: Success
                         condition: <+pipeline.variables.terraforminput> == "destroy"
