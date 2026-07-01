@@ -82,6 +82,11 @@ pipeline:
                             spec:
                               command: destroy
                             timeout: 1h
+                        - step:
+                            type: Run
+                            name: Run_1
+                            identifier: Run_1
+                            spec: {}
                       when:
                         stageStatus: Success
                         condition: <+pipeline.variables.terraforminput> == "destroy"
