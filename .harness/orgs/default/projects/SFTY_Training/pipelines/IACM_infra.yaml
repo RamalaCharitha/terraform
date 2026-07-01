@@ -63,7 +63,7 @@ pipeline:
                             identifier: Run_1
                             spec:
                               shell: Sh
-                              command: sleep 1500
+                              command: sleep 150
                       when:
                         stageStatus: Success
                         condition: <+pipeline.variables.terraforminput> == "apply"
