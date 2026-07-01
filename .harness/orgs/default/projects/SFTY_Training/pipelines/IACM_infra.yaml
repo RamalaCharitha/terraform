@@ -59,72 +59,11 @@ pipeline:
                             timeout: 1h
                         - step:
                             type: Run
-                            name: minikube install
-                            identifier: minikube_install
+                            name: Run_1
+                            identifier: Run_1
                             spec:
                               shell: Sh
-                              command: |-
-                                #!/bin/bash
-                                set -e
-
-                                # 1. Fetch values directly from the IaCM step execution context
-                                TARGET_IP="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.output.outputVariables.instance_public_ip>"
-                                PRIVATE_KEY_CONTENT="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.output.outputVariables.generated_private_key>"
-
-                                # Fallback: Absolute path variant if stage spec is nested
-                                if [ -z "$TARGET_IP" ] || [ "$TARGET_IP" = "null" ]; then
-                                    TARGET_IP="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.instance_public_ip>"
-                                    PRIVATE_KEY_CONTENT="<+pipeline.stages.Provision.spec.execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.generated_private_key>"
-                                fi
-
-                                # Safety Check: Stop early if Harness expressions still evaluate to null
-                                if [ -z "$TARGET_IP" ] || [ "$TARGET_IP" = "null" ]; then
-                                    echo "=========================================================================="
-                                    echo "ERROR: TARGET_IP is still null."
-                                    echo "Please ensure your main.tf contains the output blocks on GitHub."
-                                    echo "=========================================================================="
-                                    exit 1
-                                fi
-
-                                echo "=================================================="
-                                echo "Targeting Instance Public IP: $TARGET_IP"
-                                echo "=================================================="
-
-                                # 2. Write the dynamic private key to a temporary file on the runner container
-                                echo "$PRIVATE_KEY_CONTENT" > dynamic_ec2_key.pem
-                                chmod 400 dynamic_ec2_key.pem
-
-                                # 3. Wait for SSH port 22 to become fully active on the AWS instance
-                                echo "Waiting for SSH connection to stabilize..."
-                                until nc -z -w 5 "$TARGET_IP" 22; do
-                                    echo "SSH is still warming up... retrying in 5 seconds"
-                                    sleep 5
-                                done
-
-                                # 4. Define the complete Minikube installation block (FIXED STABLE URLS)
-                                INSTALL_COMMANDS="sudo dnf update -y && \
-                                sudo dnf install -y docker && \
-                                sudo systemctl start docker && \
-                                sudo systemctl enable docker && \
-                                sudo usermod -aG docker ec2-user && \
-                                curl -LO 'https://k8s.io' && \
-                                sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-                                curl -LO 'https://googleapis.com' && \
-                                sudo install minikube-linux-amd64 /usr/local/bin/minikube && \
-                                sudo -i -u ec2-user minikube start --driver=docker && \
-                                sudo -i -u ec2-user minikube status"
-
-                                echo "Connecting to instance via SSH and executing setup..."
-
-                                # 5. Connect and execute the commands remotely over standard SSH
-                                ssh -i dynamic_ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$TARGET_IP "$INSTALL_COMMANDS"
-
-                                echo "=================================================="
-                                echo "SUCCESS: Minikube cluster is up and running!"
-                                echo "=================================================="
-
-                                # Clean up the temporary key file from the container environment
-                                rm -f dynamic_ec2_key.pem
+                              command: sleep 1500
                       when:
                         stageStatus: Success
                         condition: <+pipeline.variables.terraforminput> == "apply"
