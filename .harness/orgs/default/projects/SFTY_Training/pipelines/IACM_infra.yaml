@@ -67,16 +67,14 @@ pipeline:
                                 #!/bin/bash
                                 set -e
 
-                                # 1. Fetch your EC2 Public IP and Private Key from Harness IaCM Output Variables
-                                TARGET_IP="<+stage.spec.execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.instance_public_ip>"
-                                PRIVATE_KEY_CONTENT="<+stage.spec.execution.steps.IACMTerraformPlugin_3.iacm.outputVariables.generated_private_key>"
+                                # 1. Fetch variables from Global IaCM Workspace Tree
+                                TARGET_IP="<+workspace.outputVariables.instance_public_ip>"
+                                PRIVATE_KEY_CONTENT="<+workspace.outputVariables.generated_private_key>"
 
                                 # Safety Check: Stop early if Harness expressions still evaluate to null
                                 if [ -z "$TARGET_IP" ] || [ "$TARGET_IP" = "null" ]; then
                                     echo "=========================================================================="
                                     echo "ERROR: TARGET_IP is still null."
-                                    echo "Please check the 'Outputs' tab of your IACMTerraformPlugin_3 step execution"
-                                    echo "to confirm that 'instance_public_ip' is listed under output variables."
                                     echo "=========================================================================="
                                     exit 1
                                 fi
@@ -96,7 +94,7 @@ pipeline:
                                     sleep 5
                                 done
 
-                                # 4. Define the complete Minikube installation block
+                                # 4. Define the complete Minikube installation block (FIXED STABLE URLS)
                                 INSTALL_COMMANDS="sudo dnf update -y && \
                                 sudo dnf install -y docker && \
                                 sudo systemctl start docker && \
