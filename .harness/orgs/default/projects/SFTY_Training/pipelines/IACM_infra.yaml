@@ -67,10 +67,18 @@ pipeline:
                                 #!/bin/bash
                                 set -e
 
-                                # 1. Fetch your EC2 Public IP and Private Key directly from Terraform outputs
-                                # IMPORTANT: Replace 'STAGE_ID' and 'TERRAFORM_STEP_ID' with your exact Harness identifiers
-                                TARGET_IP="<+pipeline.stages.STAGE_ID.spec.execution.steps.TERRAFORM_STEP_ID.output.terraformOutputs.instance_public_ip>"
-                                PRIVATE_KEY_CONTENT="<+pipeline.stages.STAGE_ID.spec.execution.steps.TERRAFORM_STEP_ID.output.terraformOutputs.generated_private_key>"
+                                # 1. Fetch your EC2 Public IP and Private Key dynamically using your step identifier
+                                TARGET_IP="<+stage.spec.execution.steps.IACMTerraformPlugin_3.output.terraformOutputs.instance_public_ip>"
+                                PRIVATE_KEY_CONTENT="<+stage.spec.execution.steps.IACMTerraformPlugin_3.output.terraformOutputs.generated_private_key>"
+
+                                # Safety Check: Stop early if Harness expressions still evaluate to null
+                                if [ -z "$TARGET_IP" ] || [ "$TARGET_IP" = "null" ]; then
+                                    echo "=========================================================================="
+                                    echo "ERROR: TARGET_IP is null. The path to IACMTerraformPlugin_3 outputs is wrong."
+                                    echo "Please double-check that your Terraform Apply step outputs match these keys."
+                                    echo "=========================================================================="
+                                    exit 1
+                                fi
 
                                 echo "=================================================="
                                 echo "Targeting Instance Public IP: $TARGET_IP"
